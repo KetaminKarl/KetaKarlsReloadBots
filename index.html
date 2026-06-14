@@ -201,9 +201,38 @@
             </select>
           </div>
         </div>
-        <div id="server-status" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;">
-          <span id="server-dot" style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;"></span>
-          <span id="server-text" style="color:var(--text-dim);">Server nicht verbunden – starte einmalig: <strong style="font-family:var(--mono);">python3 server.py</strong></span>
+        <div id="server-status" style="margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;" onclick="toggleServerGuide()">
+            <span id="server-dot" style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;"></span>
+            <span id="server-text" style="flex:1;color:var(--text-dim);">Server nicht verbunden</span>
+            <span id="server-guide-arrow" style="color:var(--text-dim);font-size:11px;">▼ Anleitung anzeigen</span>
+          </div>
+          <div id="server-guide" style="background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:16px;display:none;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text);">📋 Einmalige Einrichtung – nur 2 Schritte!</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">SCHRITT 1 – Server-Datei herunterladen</div>
+                <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Lade die Datei <strong style="color:var(--text);">server.py</strong> herunter und lege sie in einen Ordner deiner Wahl.</div>
+                <a href="https://ketaminkarl.github.io/KetaKarlsReloadBots/server.py" download class="btn btn-ghost btn-sm" style="text-decoration:none;">⬇ server.py herunterladen</a>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">SCHRITT 2 – Server starten</div>
+                <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;"><strong style="color:var(--text);">Mac:</strong> Terminal öffnen → diesen Befehl eingeben → Enter:</div>
+                <div style="background:#0a0b0f;border-radius:6px;padding:8px 12px;font-family:var(--mono);font-size:12px;color:#a0c0ff;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+                  <span>python3 ~/Downloads/server.py</span>
+                  <button class="btn btn-ghost btn-sm" onclick="copyCmd('mac')" style="padding:3px 8px;font-size:11px;">Kopieren</button>
+                </div>
+                <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;"><strong style="color:var(--text);">Windows:</strong> CMD öffnen → diesen Befehl eingeben → Enter:</div>
+                <div style="background:#0a0b0f;border-radius:6px;padding:8px 12px;font-family:var(--mono);font-size:12px;color:#a0c0ff;display:flex;align-items:center;justify-content:space-between;">
+                  <span>python server.py</span>
+                  <button class="btn btn-ghost btn-sm" onclick="copyCmd('win')" style="padding:3px 8px;font-size:11px;">Kopieren</button>
+                </div>
+              </div>
+              <div style="background:rgba(62,207,142,0.05);border:1px solid rgba(62,207,142,0.2);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text-dim);">
+                💡 <strong style="color:var(--green);">Tipp:</strong> Das Terminal-Fenster muss offen bleiben solange du den Bot nutzt. Du musst das nur einmal pro Sitzung machen.
+              </div>
+            </div>
+          </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-success" id="btn-start" onclick="startBlock()">▶ Block direkt starten</button>
@@ -452,6 +481,24 @@ async function initApp() {
 
   await loadAll();
   checkServer();
+function toggleServerGuide() {
+  const guide = document.getElementById("server-guide");
+  const arrow = document.getElementById("server-guide-arrow");
+  if (!guide) return;
+  if (guide.style.display === "none") {
+    guide.style.display = "block";
+    arrow.textContent = "▲ Anleitung ausblenden";
+  } else {
+    guide.style.display = "none";
+    arrow.textContent = "▼ Anleitung anzeigen";
+  }
+}
+
+function copyCmd(os) {
+  const cmd = os === "mac" ? "python3 ~/Downloads/server.py" : "python server.py";
+  navigator.clipboard.writeText(cmd).then(()=> log("✓ Befehl kopiert!", "ok"));
+}
+
   setInterval(checkServer, 3000);
 }
 
@@ -861,11 +908,14 @@ async function checkServer() {
     await fetch(SERVER + "/status");
     serverOnline = true;
     document.getElementById("server-dot").style.background = "var(--green)";
-    document.getElementById("server-text").textContent = "Server verbunden ✓";
+    document.getElementById("server-text").textContent = "Server verbunden ✓ – Bereit zum Starten";
+    document.getElementById("server-guide-arrow").textContent = "▼ Anleitung anzeigen";
+    const guide = document.getElementById("server-guide");
+    if (guide) guide.style.display = "none";
   } catch(e) {
     serverOnline = false;
     document.getElementById("server-dot").style.background = "var(--red)";
-    document.getElementById("server-text").innerHTML = 'Server nicht verbunden – starte: <strong style="font-family:var(--mono);">python3 server.py</strong>';
+    document.getElementById("server-text").textContent = "Server nicht verbunden";
   }
 }
 
