@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dolphin Bot Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0e0f13; --surface:#16181f; --surface2:#1e2029; --border:#2a2d3a;
+    --accent:#5b6af0; --accent-dim:#3d4ab0; --green:#3ecf8e; --red:#f05b5b;
+    --yellow:#f0b95b; --text:#e8eaf0; --text-dim:#7c8099; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh;}
+
+  /* LOGIN */
+  .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:360px;}
+  .login-logo{font-size:32px;text-align:center;margin-bottom:8px;}
+  .login-title{font-size:20px;font-weight:700;text-align:center;margin-bottom:4px;}
+  .login-sub{font-size:13px;color:var(--text-dim);text-align:center;margin-bottom:28px;}
+  .login-error{background:rgba(240,91,91,0.1);border:1px solid var(--red);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--red);margin-bottom:12px;display:none;}
+
+  /* APP */
+  .app{display:flex;height:100vh;overflow:hidden;}
+  .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;flex-shrink:0;}
+  .logo{padding:0 20px 16px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+  .logo-title{font-size:15px;font-weight:700;}
+  .logo-sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
+  .user-badge{margin:0 12px 16px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:8px;}
+  .user-badge-name{font-size:13px;font-weight:600;flex:1;}
+  .user-badge-role{font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;color:var(--text-dim);font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s;}
+  .nav-item:hover{color:var(--text);background:var(--surface2);}
+  .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(91,106,240,0.08);}
+  .nav-icon{font-size:16px;width:20px;text-align:center;}
+  .nav-section{padding:8px 20px 4px;font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;margin-top:8px;}
+  .main{flex:1;overflow-y:auto;padding:28px 32px;}
+  .page{display:none;} .page.active{display:block;}
+  .page-header{margin-bottom:24px;}
+  .page-title{font-size:20px;font-weight:700;}
+  .page-desc{color:var(--text-dim);margin-top:4px;font-size:13px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;}
+  .card-title{font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:14px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  label{font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px;font-weight:500;}
+  input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:13px;padding:8px 12px;outline:none;transition:border-color 0.15s;}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+  textarea{resize:vertical;font-family:var(--mono);font-size:12px;line-height:1.6;}
+  .form-group{margin-bottom:14px;}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;}
+  .btn-primary{background:var(--accent);color:#fff;} .btn-primary:hover{background:var(--accent-dim);}
+  .btn-success{background:var(--green);color:#0a1f14;} .btn-success:hover{filter:brightness(0.9);}
+  .btn-danger{background:var(--red);color:#fff;} .btn-danger:hover{filter:brightness(0.9);}
+  .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border);} .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-sm{padding:5px 10px;font-size:12px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-green{background:rgba(62,207,142,0.15);color:var(--green);}
+  .badge-yellow{background:rgba(240,185,91,0.15);color:var(--yellow);}
+  .badge-red{background:rgba(240,91,91,0.15);color:var(--red);}
+  .badge-blue{background:rgba(91,106,240,0.15);color:var(--accent);}
+  .badge-grey{background:rgba(124,128,153,0.15);color:var(--text-dim);}
+  .stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;}
+  .stat-label{font-size:11px;color:var(--text-dim);font-weight:500;text-transform:uppercase;letter-spacing:0.05em;}
+  .stat-value{font-size:26px;font-weight:700;margin-top:4px;}
+  .stat-value.green{color:var(--green);} .stat-value.accent{color:var(--accent);} .stat-value.yellow{color:var(--yellow);}
+  .list-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;margin-bottom:8px;}
+  .list-item-num{width:26px;height:26px;background:var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text-dim);flex-shrink:0;}
+  .list-item-body{flex:1;min-width:0;}
+  .list-item-title{font-size:13px;font-weight:500;}
+  .list-item-sub{font-size:11px;color:var(--text-dim);margin-top:2px;font-family:var(--mono);}
+  .list-item-actions{display:flex;gap:6px;flex-shrink:0;}
+  .log-box{background:#0a0b0f;border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.7;height:200px;overflow-y:auto;color:#a0a8c0;}
+  .log-box .ok{color:var(--green);} .log-box .err{color:var(--red);} .log-box .info{color:var(--accent);} .log-box .warn{color:var(--yellow);}
+  .progress-wrap{background:var(--surface2);border-radius:6px;height:8px;margin:8px 0;}
+  .progress-bar{height:8px;border-radius:6px;background:var(--accent);transition:width 0.4s;}
+  .tip{background:rgba(91,106,240,0.08);border:1px solid rgba(91,106,240,0.25);border-radius:7px;padding:10px 14px;font-size:12px;color:var(--text-dim);margin-bottom:14px;}
+  .tip strong{color:var(--accent);}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+  .toggle-row:last-child{border-bottom:none;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+  .modal-title{font-size:16px;font-weight:700;margin-bottom:16px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+  .ap-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
+  .ap-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;}
+  .ap-header:hover{background:var(--surface2);}
+  .ap-title{font-size:14px;font-weight:700;flex:1;}
+  .ap-body{padding:16px;border-top:1px solid var(--border);}
+  .block-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;}
+  .block-num{font-size:11px;font-weight:700;color:var(--text-dim);width:55px;flex-shrink:0;}
+  .block-profiles{flex:1;display:flex;gap:4px;flex-wrap:wrap;}
+  .script-card{background:var(--surface2);border:2px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:all 0.15s;text-align:center;}
+  .script-card:hover{border-color:var(--accent);}
+  .script-card.selected{border-color:var(--accent);background:rgba(91,106,240,0.1);}
+  .script-card-icon{font-size:28px;margin-bottom:8px;}
+  .script-card-name{font-size:13px;font-weight:600;}
+  .script-card-url{font-size:11px;color:var(--text-dim);margin-top:3px;}
+  .user-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🐬</div>
+    <div class="login-title">Dolphin Bot Manager</div>
+    <div class="login-sub">Melde dich mit deinem Benutzernamen und PIN an</div>
+    <div class="login-error" id="login-error"></div>
+    <div class="form-group">
+      <label>Benutzername</label>
+      <input type="text" id="login-username" placeholder="z.B. Arian" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <div class="form-group">
+      <label>PIN</label>
+      <input type="password" id="login-pin" placeholder="••••••" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="login()">Anmelden →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app-screen" style="display:none;">
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-title">🐬 Dolphin Bot</div>
+      <div class="logo-sub">Multi-Account Manager</div>
+    </div>
+    <div class="user-badge">
+      <div>
+        <div class="user-badge-name" id="sidebar-username">–</div>
+        <div class="user-badge-role" id="sidebar-role">user</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="logout()" title="Abmelden">↩</button>
+    </div>
+    <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">⚡</span> Dashboard</div>
+    <div class="nav-item" onclick="showPage('apids',this)"><span class="nav-icon">🗂️</span> Meine AP-IDs</div>
+    <div class="nav-item" onclick="showPage('settings',this)"><span class="nav-icon">⚙️</span> Einstellungen</div>
+    <div id="admin-nav" style="display:none;">
+      <div class="nav-section">Admin</div>
+      <div class="nav-item" onclick="showPage('admin-users',this)"><span class="nav-icon">👥</span> User verwalten</div>
+      <div class="nav-item" onclick="showPage('admin-proxies',this)"><span class="nav-icon">🔗</span> Proxys</div>
+      <div class="nav-item" onclick="showPage('admin-scripts',this)"><span class="nav-icon">📜</span> Scripte</div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-title">Dashboard</div>
+        <div class="page-desc" id="dash-welcome">Willkommen!</div>
+      </div>
+      <div class="grid-4" style="margin-bottom:16px;">
+        <div class="stat-box"><div class="stat-label">Meine AP-IDs</div><div class="stat-value accent" id="stat-apids">0</div></div>
+        <div class="stat-box"><div class="stat-label">Profile gesamt</div><div class="stat-value" id="stat-profiles">0</div></div>
+        <div class="stat-box"><div class="stat-label">Proxys</div><div class="stat-value green" id="stat-proxies">0</div></div>
+        <div class="stat-box"><div class="stat-label">Blockgröße</div><div class="stat-value yellow" id="stat-blocksize">3</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Block starten</div>
+        <div class="grid-2" style="margin-bottom:14px;">
+          <div class="form-group" style="margin:0;">
+            <label>AP-ID auswählen</label>
+            <select id="dash-apid-select" onchange="updateDashPreview()">
+              <option value="">– AP-ID wählen –</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Aktives Script</label>
+            <select id="active-script-select">
+              <option value="">– Kein Script –</option>
+            </select>
+          </div>
+        </div>
+        <div id="dash-preview" style="margin-bottom:14px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-dim);">
+          Wähle eine AP-ID.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+          <div class="form-group" style="margin:0;">
+            <label>Ab Mitspieler Nr.</label>
+            <input type="number" id="dash-startprofile" value="1" min="1" style="width:100%;" onchange="updateDashPreview()">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Blockgröße (Profile pro Block)</label>
+            <input type="number" id="dash-blocksize" value="3" min="1" max="20" style="width:100%;" onchange="updateDashPreview()">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Reihenfolge</label>
+            <select id="dash-order" onchange="updateDashPreview()">
+              <option value="asc">↓ Von oben nach unten</option>
+              <option value="desc">↑ Von unten nach oben</option>
+            </select>
+          </div>
+        </div>
+        <div id="server-status" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;">
+          <span id="server-dot" style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;"></span>
+          <span id="server-text" style="color:var(--text-dim);">Server nicht verbunden – starte einmalig: <strong style="font-family:var(--mono);">python3 server.py</strong></span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-success" id="btn-start" onclick="startBlock()">▶ Block direkt starten</button>
+          <button class="btn btn-danger" id="btn-stop" onclick="stopBlock()" style="display:none;">⏹ Stoppen</button>
+          <button class="btn btn-primary" id="btn-next" onclick="nextBlock()" style="display:none;">⏭ Nächster Block</button>
+          <button class="btn btn-ghost" onclick="resetCurrentAP()">↺ Zurücksetzen</button>
+        </div>
+      </div>
+
+      <div class="card" id="live-output-card" style="display:none;">
+        <div class="card-title" style="display:flex;justify-content:space-between;">
+          <span>Live Output</span>
+          <span id="live-status" class="badge badge-yellow">Läuft...</span>
+        </div>
+        <div class="log-box" id="live-output"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Log</div>
+        <div class="log-box" id="log-box"><span class="info">→ Bereit.</span></div>
+      </div>
+    </div>
+
+    <!-- MEINE AP-IDs -->
+    <div class="page" id="page-apids">
+      <div class="page-header">
+        <div class="page-title">Meine AP-IDs</div>
+        <div class="page-desc">Profillisten – werden in 3er-Blöcken abgearbeitet</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Neue AP-ID erstellen</div>
+        <div class="grid-2">
+          <div class="form-group"><label>Name</label><input type="text" id="new-apid-name" placeholder="z.B. 100MS, Gruppe-A ..."></div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button class="btn btn-primary" onclick="addAPID()">+ AP-ID erstellen</button>
+          </div>
+        </div>
+      </div>
+      <div id="apid-list"><div style="color:var(--text-dim);">Lädt...</div></div>
+    </div>
+
+    <!-- EINSTELLUNGEN -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div class="page-title">Einstellungen</div>
+        <div class="page-desc">Deine persönlichen Bot-Einstellungen</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Monitor</div>
+        <div class="toggle-row">
+          <div><div style="font-size:13px;font-weight:500;">Ziel-Monitor Nummer</div></div>
+          <select id="setting-monitor" onchange="saveSettings()" style="width:80px;">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          </select>
+        </div>
+        <div class="toggle-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+          <div style="font-size:13px;font-weight:500;">Monitor-Name (zur Übersicht)</div>
+          <input type="text" id="setting-monitor-name" placeholder="z.B. MF24x3al(1)" style="width:220px;" onchange="saveSettings()">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Timing</div>
+        <div class="toggle-row">
+          <div style="font-size:13px;font-weight:500;">Pause zwischen Profilstarts (Sek.)</div>
+          <input type="number" id="setting-delay" value="2" min="1" max="30" style="width:70px;" onchange="saveSettings()">
+        </div>
+        <div class="toggle-row">
+          <div style="font-size:13px;font-weight:500;">Warten nach IP-Rotation (Sek.)</div>
+          <input type="number" id="setting-ip-wait" value="6" min="2" max="30" style="width:70px;" onchange="saveSettings()">
+        </div>
+        <div class="toggle-row">
+          <div style="font-size:13px;font-weight:500;">Blockgröße (Profile pro Block)</div>
+          <input type="number" id="setting-blocksize" value="3" min="1" max="10" style="width:70px;" onchange="saveSettings()">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">💾 Einstellungen speichern</button>
+    </div>
+
+    <!-- ADMIN: USER -->
+    <div class="page" id="page-admin-users">
+      <div class="page-header">
+        <div class="page-title">👥 User verwalten</div>
+        <div class="page-desc">Erstelle und verwalte alle Benutzer</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Neuen User erstellen</div>
+        <div class="grid-3">
+          <div class="form-group"><label>Benutzername</label><input type="text" id="new-user-name" placeholder="z.B. MaxMuster"></div>
+          <div class="form-group"><label>PIN</label><input type="text" id="new-user-pin" placeholder="z.B. 1234"></div>
+          <div class="form-group"><label>Rolle</label>
+            <select id="new-user-role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addUser()">+ User erstellen</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Alle User</div>
+        <div id="user-list"><div style="color:var(--text-dim);">Lädt...</div></div>
+      </div>
+    </div>
+
+    <!-- ADMIN: PROXYS -->
+    <div class="page" id="page-admin-proxies">
+      <div class="page-header">
+        <div class="page-title">🔗 Proxys</div>
+        <div class="page-desc">Globale Proxys – für alle User verfügbar</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Proxy hinzufügen</div>
+        <div class="grid-2">
+          <div class="form-group"><label>Name</label><input type="text" id="new-proxy-name" placeholder="z.B. Proxy 36"></div>
+          <div class="form-group"><label>Change-IP Link</label><input type="text" id="new-proxy-url" placeholder="https://i.fxdx.in/..."></div>
+        </div>
+        <button class="btn btn-primary" onclick="addProxy()">+ Proxy hinzufügen</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Aktive Proxys (<span id="proxy-count">0</span>)</div>
+        <div id="proxy-list"><div style="color:var(--text-dim);">Lädt...</div></div>
+      </div>
+    </div>
+
+    <!-- ADMIN: SCRIPTE -->
+    <div class="page" id="page-admin-scripts">
+      <div class="page-header">
+        <div class="page-title">📜 Scripte</div>
+        <div class="page-desc">Globale Scripte – für alle User verfügbar</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Script hinzufügen</div>
+        <div class="grid-2">
+          <div class="form-group"><label>Name</label><input type="text" id="new-script-name" placeholder="z.B. Bwin öffnen"></div>
+          <div class="form-group"><label>URL</label><input type="text" id="new-script-url" placeholder="https://www.bwin.com"></div>
+        </div>
+        <div class="form-group"><label>Icon (Emoji)</label><input type="text" id="new-script-icon" placeholder="🎰" style="width:80px;"></div>
+        <button class="btn btn-primary" onclick="addScript()">+ Script hinzufügen</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Gespeicherte Scripte</div>
+        <div id="script-list" class="grid-3"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL: Profile -->
+<div class="modal-overlay" id="modal-profiles">
+  <div class="modal">
+    <div class="modal-title" id="modal-profiles-title">Profile hinzufügen</div>
+    <div class="tip">Format: <strong>Name,ProfilID</strong> – eine pro Zeile</div>
+    <textarea id="modal-profiles-input" rows="10" placeholder="Khalil El Khatib,805319989&#10;Lucas Pirmus,805322413&#10;Rayan Tourabi,805320102"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveProfiles()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Löschen -->
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal" style="width:380px;">
+    <div class="modal-title">Löschen?</div>
+    <div style="color:var(--text-dim);font-size:13px;" id="modal-delete-text"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ccbtdsbwzfsyjahyqpuq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_braZyI8LinOo7_Ynbm282A_IIh-Cd2j";
+const SERVER = "http://localhost:7788";
+
+let currentUser = null;
+let allProxies = [];
+let allScripts = [];
+let myAPIds = [];
+let mySettings = {delay:2, ip_wait:6, monitor:1, monitor_name:"MF24x3al(1)", block_size:3};
+let editingAPID = null;
+let pendingDelete = null;
+let outputInterval = null;
+let generatedScript = "";
+
+// ── SUPABASE HELPER ──
+async function sb(table, method="GET", body=null, query="") {
+  const opts = {
+    method,
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json",
+      "Prefer": method === "POST" ? "return=representation" : ""
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, opts);
+  if (!r.ok) throw new Error(await r.text());
+  const text = await r.text();
+  return text ? JSON.parse(text) : [];
+}
+
+// ── AUTH ──
+async function login() {
+  const username = document.getElementById("login-username").value.trim();
+  const pin = document.getElementById("login-pin").value.trim();
+  if (!username || !pin) { showLoginError("Bitte alle Felder ausfüllen"); return; }
+  try {
+    const users = await sb("users", "GET", null, `?username=eq.${encodeURIComponent(username)}&pin=eq.${encodeURIComponent(pin)}`);
+    if (!users.length) { showLoginError("Falscher Benutzername oder PIN"); return; }
+    currentUser = users[0];
+    localStorage.setItem("dbot_user", JSON.stringify(currentUser));
+    await initApp();
+  } catch(e) {
+    showLoginError("Verbindungsfehler: " + e.message);
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById("login-error");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function logout() {
+  localStorage.removeItem("dbot_user");
+  currentUser = null;
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("app-screen").style.display = "none";
+}
+
+async function initApp() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "flex";
+  document.getElementById("sidebar-username").textContent = currentUser.username;
+  document.getElementById("sidebar-role").textContent = currentUser.role;
+  document.getElementById("dash-welcome").textContent = `Willkommen, ${currentUser.username}!`;
+
+  if (currentUser.role === "admin") {
+    document.getElementById("admin-nav").style.display = "block";
+  }
+
+  await loadAll();
+  checkServer();
+  setInterval(checkServer, 3000);
+}
+
+async function loadAll() {
+  await Promise.all([loadProxies(), loadScripts(), loadMyAPIds(), loadSettings()]);
+  updateDashboard();
+}
+
+// ── DATA LOADING ──
+async function loadProxies() {
+  allProxies = await sb("proxies", "GET", null, "?order=position");
+  document.getElementById("stat-proxies").textContent = allProxies.length;
+  document.getElementById("proxy-count").textContent = allProxies.length;
+  renderProxies();
+  renderScriptSelect();
+}
+
+async function loadScripts() {
+  allScripts = await sb("scripts", "GET", null, "?order=position");
+  renderScriptSelect();
+  renderAdminScripts();
+}
+
+async function loadMyAPIds() {
+  if (!currentUser) return;
+  const apids = await sb("apids", "GET", null, `?user_id=eq.${currentUser.id}&order=created_at`);
+  // Load profiles for each
+  myAPIds = [];
+  for (const ap of apids) {
+    const profiles = await sb("profiles", "GET", null, `?apid_id=eq.${ap.id}&order=position`);
+    myAPIds.push({...ap, profiles});
+  }
+  renderAPIds();
+  updateDashboard();
+}
+
+async function loadSettings() {
+  const rows = await sb("settings", "GET", null, `?user_id=eq.${currentUser.id}`);
+  if (rows.length) {
+    mySettings = rows[0];
+  } else {
+    // Create default
+    const [s] = await sb("settings", "POST", {user_id: currentUser.id, ...mySettings});
+    mySettings = s || mySettings;
+  }
+  document.getElementById("setting-delay").value = mySettings.delay || 2;
+  document.getElementById("setting-ip-wait").value = mySettings.ip_wait || 6;
+  document.getElementById("setting-monitor").value = mySettings.monitor || 1;
+  document.getElementById("setting-monitor-name").value = mySettings.monitor_name || "";
+  document.getElementById("setting-blocksize").value = mySettings.block_size || 3;
+  document.getElementById("stat-blocksize").textContent = mySettings.block_size || 3;
+  const dashBs = document.getElementById("dash-blocksize");
+  if (dashBs) dashBs.value = mySettings.block_size || 3;
+}
+
+// ── SETTINGS ──
+async function saveSettings() {
+  mySettings.delay = parseInt(document.getElementById("setting-delay").value)||2;
+  mySettings.ip_wait = parseInt(document.getElementById("setting-ip-wait").value)||6;
+  mySettings.monitor = parseInt(document.getElementById("setting-monitor").value)||1;
+  mySettings.monitor_name = document.getElementById("setting-monitor-name").value||"";
+  mySettings.block_size = parseInt(document.getElementById("setting-blocksize").value)||3;
+  try {
+    await sb("settings", "PATCH", mySettings, `?user_id=eq.${currentUser.id}`);
+    document.getElementById("stat-blocksize").textContent = mySettings.block_size;
+    log("✓ Einstellungen gespeichert", "ok");
+  } catch(e) { log("❌ " + e.message, "err"); }
+}
+
+// ── AP-IDs ──
+async function addAPID() {
+  const name = document.getElementById("new-apid-name").value.trim();
+  if (!name) { log("⚠ Name fehlt", "warn"); return; }
+  try {
+    const [ap] = await sb("apids", "POST", {user_id: currentUser.id, name, current_block: 0});
+    myAPIds.push({...ap, profiles:[]});
+    document.getElementById("new-apid-name").value = "";
+    log(`✓ AP-ID erstellt: ${name}`, "ok");
+    renderAPIds();
+    updateDashboard();
+  } catch(e) { log("❌ " + e.message, "err"); }
+}
+
+function openProfiles(apid) {
+  editingAPID = apid;
+  document.getElementById("modal-profiles-title").textContent = `Profile für: ${apid.name}`;
+  document.getElementById("modal-profiles-input").value = apid.profiles.map(p=>`${p.name},${p.dolphin_id}`).join("\n");
+  document.getElementById("modal-profiles").classList.add("open");
+}
+
+async function saveProfiles() {
+  if (!editingAPID) return;
+  const lines = document.getElementById("modal-profiles-input").value.trim().split("\n").filter(l=>l.trim());
+  const profiles = lines.map((l, i) => {
+    const parts = l.split(",").map(x=>x.trim());
+    return {apid_id: editingAPID.id, name: parts[0]||`Profil ${i+1}`, dolphin_id: parts[1]||"", position: i};
+  }).filter(p=>p.dolphin_id);
+
+  try {
+    // Delete old profiles
+    await sb("profiles", "DELETE", null, `?apid_id=eq.${editingAPID.id}`);
+    // Insert new
+    if (profiles.length) await sb("profiles", "POST", profiles);
+    log(`✓ ${profiles.length} Profile gespeichert`, "ok");
+    closeModal();
+    await loadMyAPIds();
+  } catch(e) { log("❌ " + e.message, "err"); }
+}
+
+async function deleteAPID(id, name) {
+  pendingDelete = {type:"apid", id, name};
+  document.getElementById("modal-delete-text").textContent = `AP-ID "${name}" und alle Profile löschen?`;
+  document.getElementById("modal-delete").classList.add("open");
+}
+
+async function resetAPID(id) {
+  await sb("apids", "PATCH", {current_block:0}, `?id=eq.${id}`);
+  const ap = myAPIds.find(a=>a.id===id);
+  if (ap) ap.current_block = 0;
+  log("↺ Zurückgesetzt", "info");
+  renderAPIds();
+  updateDashboard();
+}
+
+function getBlocks(ap) {
+  const bs = mySettings.block_size || 3;
+  const blocks = [];
+  for (let i=0; i<ap.profiles.length; i+=bs) blocks.push(ap.profiles.slice(i,i+bs));
+  return blocks;
+}
+
+function renderAPIds() {
+  const el = document.getElementById("apid-list");
+  if (!el) return;
+  if (!myAPIds.length) { el.innerHTML='<div style="color:var(--text-dim);font-size:13px;padding:12px;">Noch keine AP-IDs. Erstelle deine erste oben!</div>'; return; }
+  el.innerHTML = myAPIds.map(ap => {
+    const blocks = getBlocks(ap);
+    const done = ap.current_block;
+    const total = blocks.length;
+    const pct = total > 0 ? Math.round((done/total)*100) : 0;
+    const isDone = done >= total && total > 0;
+    const blocksHTML = blocks.map((block, bi) => {
+      const isDoneB = bi < done;
+      const isNext = bi === done;
+      return `<div class="block-row" style="${isNext?'border-color:var(--accent);':''}">
+        <div class="block-num">Block ${bi+1} <span style="font-size:10px;">(${block.length})</span></div>
+        <div class="block-profiles">${block.map(p=>`<span class="badge ${isDoneB?'badge-green':isNext?'badge-blue':'badge-grey'}">${p.name}</span>`).join("")}</div>
+        ${isNext?'<span style="color:var(--accent);font-size:11px;font-weight:600;">← nächster</span>':''}
+        ${isDoneB?'<span style="color:var(--green);">✓</span>':''}
+      </div>`;
+    }).join("");
+    return `<div class="ap-card">
+      <div class="ap-header" onclick="toggleAPBody('${ap.id}')">
+        <div style="font-size:18px;">🗂️</div>
+        <div class="ap-title">${ap.name}</div>
+        <span class="badge badge-blue">${ap.profiles.length} Profile</span>
+        <span class="badge badge-purple">${total} Blöcke</span>
+        <span class="badge ${isDone?'badge-green':'badge-yellow'}">${isDone?'✓ Fertig':done+'/'+total}</span>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openProfiles(myAPIds.find(a=>a.id==='${ap.id}'))">✏️ Profile</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();resetAPID('${ap.id}')">↺</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteAPID('${ap.id}','${ap.name}')">✕</button>
+      </div>
+      <div class="ap-body" id="apbody-${ap.id}" style="display:none;">
+        <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">${done}/${total} Blöcke (${pct}%)</div>
+        ${blocksHTML||'<div style="color:var(--text-dim);">Noch keine Profile – klicke ✏️ Profile</div>'}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function toggleAPBody(id) {
+  const el = document.getElementById("apbody-"+id);
+  if (el) el.style.display = el.style.display==="none"?"block":"none";
+}
+
+// ── DASHBOARD ──
+function updateDashboard() {
+  document.getElementById("stat-apids").textContent = myAPIds.length;
+  document.getElementById("stat-profiles").textContent = myAPIds.reduce((s,a)=>s+a.profiles.length,0);
+  const sel = document.getElementById("dash-apid-select");
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">– AP-ID wählen –</option>' +
+      myAPIds.map(a=>`<option value="${a.id}">${a.name} (${a.profiles.length} Profile)</option>`).join("");
+    if (cur) sel.value = cur;
+  }
+  updateDashPreview();
+}
+
+function getDashBlockSize() {
+  return parseInt(document.getElementById("dash-blocksize")?.value || mySettings.block_size || 3);
+}
+
+function updateDashPreview() {
+  const apId = document.getElementById("dash-apid-select")?.value;
+  const el = document.getElementById("dash-preview");
+  if (!el) return;
+  if (!apId) { el.innerHTML='<span style="color:var(--text-dim);">Wähle eine AP-ID.</span>'; return; }
+  const ap = myAPIds.find(a=>a.id===apId);
+  if (!ap) return;
+  if (!ap.profiles.length) { el.innerHTML='<span style="color:var(--text-dim);">Keine Profile vorhanden.</span>'; return; }
+
+  const startProfile = parseInt(document.getElementById("dash-startprofile")?.value||1) - 1;
+  const order = document.getElementById("dash-order")?.value || "asc";
+  const bs = getDashBlockSize();
+  let profiles = [...ap.profiles];
+  if (order === "desc") profiles = profiles.reverse();
+  const blocks = [];
+  for (let i=0; i<profiles.length; i+=bs) blocks.push(profiles.slice(i,i+bs));
+  const blockIdx = Math.floor(startProfile / bs);
+
+  if (blockIdx >= blocks.length) {
+    el.innerHTML='<span style="color:var(--red);">⚠ Startprofil außerhalb des Bereichs (max: '+ap.profiles.length+')</span>'; return;
+  }
+  const next = blocks[blockIdx];
+  const totalBlocks = blocks.length;
+  el.innerHTML=`
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
+      <strong style="color:var(--accent);">${ap.name}</strong>
+      — Block ${blockIdx+1} von ${totalBlocks}
+      · Profile ${blockIdx*bs+1}–${Math.min((blockIdx+1)*bs, ap.profiles.length)} von ${ap.profiles.length}
+      · Blockgröße: ${bs}
+      · ${order==='desc'?'↑ Umgekehrt':'↓ Normal'}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${next.map((p,i)=>`<span class="badge badge-blue">🔗 ${allProxies[i%allProxies.length]?.name||'Proxy '+(i+1)}: ${p.name}</span>`).join("")}
+    </div>`;
+}
+
+function renderScriptSelect() {
+  const sel = document.getElementById("active-script-select");
+  if (!sel) return;
+  sel.innerHTML = '<option value="">– Kein Script –</option>' +
+    allScripts.map(s=>`<option value="${s.id}">${s.icon} ${s.name}</option>`).join("");
+}
+
+async function resetCurrentAP() {
+  const apId = document.getElementById("dash-apid-select")?.value;
+  if (!apId) return;
+  await resetAPID(apId);
+  updateDashPreview();
+}
+
+// ── START BLOCK ──
+async function startBlock() {
+  if (!serverOnline) { log("⚠ Server nicht verbunden", "warn"); return; }
+  const apId = document.getElementById("dash-apid-select")?.value;
+  if (!apId) { log("⚠ Keine AP-ID gewählt", "warn"); return; }
+  const ap = myAPIds.find(a=>a.id===apId);
+  if (!ap) return;
+
+  const startProfile = parseInt(document.getElementById("dash-startprofile")?.value||1) - 1;
+  const order = document.getElementById("dash-order")?.value || "asc";
+  const bs = getDashBlockSize();
+  let profiles = [...ap.profiles];
+  if (order === "desc") profiles = profiles.reverse();
+  const blocks = [];
+  for (let i=0; i<profiles.length; i+=bs) blocks.push(profiles.slice(i,i+bs));
+
+  // Finde Block basierend auf Startprofil
+  const blockIdx = Math.floor(startProfile / bs);
+  if (blockIdx >= blocks.length) { log("⚠ Startprofil außerhalb des Bereichs", "warn"); return; }
+  const blockProfiles = blocks[blockIdx];
+
+  const scriptId = document.getElementById("active-script-select")?.value;
+  const script = allScripts.find(s=>s.id===scriptId);
+
+  // Block counter auf nächsten setzen
+  ap.current_block = blockIdx + 1;
+  await sb("apids", "PATCH", {current_block: ap.current_block}, `?id=eq.${apId}`);
+
+  generatedScript = buildScript(ap, blockProfiles, blockIdx, script, bs);
+
+  try {
+    const r = await fetch(SERVER + "/run", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({script: generatedScript})
+    });
+    const data = await r.json();
+    if (data.status === "started") {
+      log(`✓ Block ${blockIdx+1} gestartet (Profile ${blockIdx*bs+1}–${Math.min((blockIdx+1)*bs, profiles.length)} · Blockgröße: ${bs})`, "ok");
+      document.getElementById("btn-start").style.display = "none";
+      document.getElementById("btn-stop").style.display = "inline-flex";
+      document.getElementById("live-output-card").style.display = "block";
+      document.getElementById("live-output").innerHTML = "";
+      document.getElementById("live-status").textContent = "Läuft...";
+      document.getElementById("live-status").className = "badge badge-yellow";
+      startOutputPolling();
+      renderAPIds();
+      updateDashPreview();
+    }
+  } catch(e) { log("❌ " + e.message, "err"); }
+}
+
+function buildScript(ap, blockProfiles, blockIdx, script) {
+  const scriptUrl = script?.url || "";
+  const proxiesCode = allProxies.map(p=>`    {"name": "${p.name}", "changeip_url": "${p.changeip_url}"},`).join("\n");
+  const profilesCode = blockProfiles.map(p=>`    "${p.dolphin_id}",   # ${p.name}`).join("\n");
+  return `"""
+Dolphin Anty Bot
+User: ${currentUser.username} | AP-ID: ${ap.name} | Block ${blockIdx+1}
+Profile: ${blockProfiles.map(p=>p.name).join(", ")}
+"""
+import requests, time, subprocess
+
+DOLPHIN_API = "http://localhost:3001"
+DELAY = ${mySettings.delay || 2}
+IP_WAIT = ${mySettings.ip_wait || 6}
+
+PROXIES = [
+${proxiesCode}
+]
+PROFILE_IDS = [
+${profilesCode}
+]
+SCRIPT_URL = "${scriptUrl}"
+RECTANGLE_ACTIONS = ["top-left", "top-right", "bottom-left", "bottom-right"]
+
+def rotate_ips():
+    print("\\n🔄 Rotiere IPs...")
+    for p in PROXIES:
+        try:
+            r = requests.get(p["changeip_url"], timeout=10)
+            print(f"  {'✅' if r.status_code==200 else '⚠'} {p['name']}")
+        except Exception as e:
+            print(f"  ❌ {p['name']}: {e}")
+        time.sleep(1)
+    print(f"⏳ Warte {IP_WAIT}s...")
+    time.sleep(IP_WAIT)
+
+def start_profile(pid):
+    try:
+        r = requests.get(f"{DOLPHIN_API}/v1.0/browser_profiles/{pid}/start?automation=1", timeout=10)
+        if r.status_code == 200:
+            return r.json().get("automation", {}).get("port")
+    except Exception as e:
+        print(f"  Fehler: {e}")
+    return None
+
+def stop_profile(pid):
+    try:
+        requests.get(f"{DOLPHIN_API}/v1.0/browser_profiles/{pid}/stop", timeout=5)
+    except: pass
+
+def position_via_rectangle(action, i):
+    time.sleep(2.5)
+    if i >= 2:
+        subprocess.run(["open", f"rectangle://execute-action?name={action}"], timeout=5)
+        time.sleep(0.8)
+    subprocess.run(["open", f"rectangle://execute-action?name={action}"], timeout=5)
+    print(f"  📐 {action}")
+
+def open_url(url):
+    time.sleep(1)
+    applescript = f"""tell application "System Events"
+    keystroke "l" using command down
+    delay 0.5
+    keystroke "a" using command down
+    delay 0.2
+    keystroke "{url}"
+    delay 0.3
+    key code 36
+end tell"""
+    try:
+        subprocess.run(["osascript", "-e", applescript], timeout=5)
+        print(f"  🌐 {url}")
+    except: pass
+
+def run():
+    print("=" * 55)
+    print(f"  ${currentUser.username} | ${ap.name} | Block ${blockIdx+1}")
+    print("=" * 55)
+    rotate_ips()
+    print(f"\\n🚀 Starte {len(PROFILE_IDS)} Profile...")
+    active = {}
+    for i, pid in enumerate(PROFILE_IDS):
+        proxy = PROXIES[i % len(PROXIES)]
+        action = RECTANGLE_ACTIONS[i % len(RECTANGLE_ACTIONS)]
+        print(f"\\n  [{i+1}/{len(PROFILE_IDS)}] {pid} → {proxy['name']}")
+        port = start_profile(pid)
+        if port:
+            active[pid] = port
+            print(f"  ✅ Port {port}")
+            position_via_rectangle(action, i)
+            if SCRIPT_URL: open_url(SCRIPT_URL)
+        else:
+            print(f"  ❌ Start fehlgeschlagen")
+        if i < len(PROFILE_IDS)-1: time.sleep(DELAY)
+    print(f"\\n✅ {len(active)}/{len(PROFILE_IDS)} Profile laufen!")
+    input("\\nENTER zum Stoppen...")
+    for pid in active:
+        stop_profile(pid)
+        print(f"⏹ {pid}")
+    print("\\n✅ Fertig!")
+
+if __name__ == "__main__":
+    run()
+`;
+}
+
+// ── SERVER ──
+let serverOnline = false;
+async function checkServer() {
+  try {
+    await fetch(SERVER + "/status");
+    serverOnline = true;
+    document.getElementById("server-dot").style.background = "var(--green)";
+    document.getElementById("server-text").textContent = "Server verbunden ✓";
+  } catch(e) {
+    serverOnline = false;
+    document.getElementById("server-dot").style.background = "var(--red)";
+    document.getElementById("server-text").innerHTML = 'Server nicht verbunden – starte: <strong style="font-family:var(--mono);">python3 server.py</strong>';
+  }
+}
+
+function startOutputPolling() {
+  if (outputInterval) clearInterval(outputInterval);
+  outputInterval = setInterval(async () => {
+    try {
+      const r = await fetch(SERVER+"/output", {method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+      const data = await r.json();
+      const el = document.getElementById("live-output");
+      data.lines.forEach(line => {
+        const d = document.createElement("div");
+        d.textContent = line;
+        if (line.includes("✅")||line.includes("✓")) d.className="ok";
+        else if (line.includes("❌")) d.className="err";
+        else if (line.includes("⚠")) d.className="warn";
+        else d.className="info";
+        el.appendChild(d);
+        el.scrollTop = el.scrollHeight;
+      });
+      if (data.done) {
+        clearInterval(outputInterval);
+        document.getElementById("live-status").textContent = "Fertig ✓";
+        document.getElementById("live-status").className = "badge badge-green";
+        document.getElementById("btn-stop").style.display = "none";
+        document.getElementById("btn-start").style.display = "inline-flex";
+        document.getElementById("btn-next").style.display = "inline-flex";
+        log("✅ Block abgeschlossen!", "ok");
+      }
+    } catch(e) {}
+  }, 800);
+}
+
+async function stopBlock() {
+  await fetch(SERVER+"/stop", {method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+  clearInterval(outputInterval);
+  document.getElementById("btn-stop").style.display = "none";
+  document.getElementById("btn-start").style.display = "inline-flex";
+  document.getElementById("live-status").textContent = "Gestoppt";
+  document.getElementById("live-status").className = "badge badge-red";
+  log("⏹ Gestoppt", "warn");
+}
+
+function nextBlock() {
+  document.getElementById("btn-next").style.display = "none";
+  document.getElementById("live-output-card").style.display = "none";
+  document.getElementById("live-output").innerHTML = "";
+  const bs = getDashBlockSize();
+  const cur = parseInt(document.getElementById("dash-startprofile")?.value||1);
+  document.getElementById("dash-startprofile").value = cur + bs;
+  updateDashPreview();
+  log("⏭ Nächster Block bereit – Startprofil: " + (cur + bs), "info");
+}
+
+// ── ADMIN: USERS ──
+async function loadUsers() {
+  const users = await sb("users", "GET", null, "?order=created_at");
+  const el = document.getElementById("user-list");
+  if (!el) return;
+  el.innerHTML = users.map(u=>`
+    <div class="user-card">
+      <div style="font-size:20px;">${u.role==='admin'?'👑':'👤'}</div>
+      <div style="flex:1;">
+        <div style="font-weight:600;">${u.username}</div>
+        <div style="font-size:11px;color:var(--text-dim);">PIN: ${u.pin} · Rolle: ${u.role}</div>
+      </div>
+      <span class="badge ${u.role==='admin'?'badge-yellow':'badge-blue'}">${u.role}</span>
+      ${u.id !== currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${u.username}')">✕</button>` : '<span style="font-size:11px;color:var(--text-dim);">(du)</span>'}
+    </div>`).join("");
+}
+
+async function addUser() {
+  const name = document.getElementById("new-user-name").value.trim();
+  const pin = document.getElementById("new-user-pin").value.trim();
+  const role = document.getElementById("new-user-role").value;
+  if (!name||!pin) { log("⚠ Name und PIN fehlen","warn"); return; }
+  try {
+    await sb("users","POST",{username:name,pin,role});
+    document.getElementById("new-user-name").value="";
+    document.getElementById("new-user-pin").value="";
+    log(`✓ User erstellt: ${name}`,"ok");
+    loadUsers();
+  } catch(e) { log("❌ "+e.message,"err"); }
+}
+
+async function deleteUser(id, name) {
+  pendingDelete = {type:"user", id, name};
+  document.getElementById("modal-delete-text").textContent = `User "${name}" löschen?`;
+  document.getElementById("modal-delete").classList.add("open");
+}
+
+// ── ADMIN: PROXIES ──
+function renderProxies() {
+  const el = document.getElementById("proxy-list");
+  if (!el) return;
+  el.innerHTML = allProxies.map((p,i)=>`
+    <div class="list-item">
+      <div class="list-item-num">${i+1}</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${p.name}</div>
+        <div class="list-item-sub">${p.changeip_url}</div>
+      </div>
+      <div class="list-item-actions"><button class="btn btn-danger btn-sm" onclick="deleteProxy('${p.id}')">✕</button></div>
+    </div>`).join("");
+}
+
+async function addProxy() {
+  const name = document.getElementById("new-proxy-name").value.trim();
+  const url = document.getElementById("new-proxy-url").value.trim();
+  if (!url) { log("⚠ URL fehlt","warn"); return; }
+  await sb("proxies","POST",{name:name||"Proxy "+(allProxies.length+1), changeip_url:url, position:allProxies.length});
+  document.getElementById("new-proxy-name").value="";
+  document.getElementById("new-proxy-url").value="";
+  log(`✓ Proxy hinzugefügt`,"ok");
+  await loadProxies();
+}
+
+async function deleteProxy(id) {
+  await sb("proxies","DELETE",null,`?id=eq.${id}`);
+  await loadProxies();
+}
+
+// ── ADMIN: SCRIPTS ──
+function renderAdminScripts() {
+  const el = document.getElementById("script-list");
+  if (!el) return;
+  if (!allScripts.length) { el.innerHTML='<div style="color:var(--text-dim);">Keine Scripte.</div>'; return; }
+  el.innerHTML = allScripts.map(s=>`
+    <div class="script-card">
+      <div class="script-card-icon">${s.icon}</div>
+      <div class="script-card-name">${s.name}</div>
+      <div class="script-card-url">${s.url.replace('https://','')}</div>
+      <button class="btn btn-danger btn-sm" style="margin-top:8px;" onclick="deleteScript('${s.id}')">✕</button>
+    </div>`).join("");
+}
+
+async function addScript() {
+  const name=document.getElementById("new-script-name").value.trim();
+  const url=document.getElementById("new-script-url").value.trim();
+  const icon=document.getElementById("new-script-icon").value.trim()||"🌐";
+  if(!name||!url){log("⚠ Name und URL fehlen","warn");return;}
+  await sb("scripts","POST",{name,url,icon,position:allScripts.length});
+  document.getElementById("new-script-name").value="";
+  document.getElementById("new-script-url").value="";
+  document.getElementById("new-script-icon").value="";
+  log(`✓ Script hinzugefügt`,"ok");
+  await loadScripts();
+}
+
+async function deleteScript(id) {
+  await sb("scripts","DELETE",null,`?id=eq.${id}`);
+  await loadScripts();
+}
+
+// ── DELETE CONFIRM ──
+async function confirmDelete() {
+  if (!pendingDelete) return;
+  try {
+    if (pendingDelete.type==="apid") {
+      await sb("apids","DELETE",null,`?id=eq.${pendingDelete.id}`);
+      await loadMyAPIds();
+    } else if (pendingDelete.type==="user") {
+      await sb("users","DELETE",null,`?id=eq.${pendingDelete.id}`);
+      loadUsers();
+    }
+    closeModal();
+  } catch(e) { log("❌ "+e.message,"err"); }
+}
+
+function closeModal() {
+  document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('open'));
+  pendingDelete = null; editingAPID = null;
+}
+
+// ── NAV ──
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  if (id==='admin-users') loadUsers();
+  if (id==='admin-proxies') loadProxies();
+  if (id==='admin-scripts') loadScripts();
+}
+
+function log(msg, type="info") {
+  const el = document.getElementById("log-box");
+  if (!el) return;
+  const d = document.createElement("div");
+  d.className = type;
+  d.textContent = new Date().toLocaleTimeString()+"  "+msg;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+
+// ── AUTO LOGIN ──
+const saved = localStorage.getItem("dbot_user");
+if (saved) {
+  try {
+    currentUser = JSON.parse(saved);
+    initApp();
+  } catch(e) { localStorage.removeItem("dbot_user"); }
+}
+</script>
+</body>
+</html>
